@@ -147,14 +147,13 @@ module Rack #:nodoc:
     attr_accessor :consumer_secret
     alias secret  consumer_secret
     alias secret= consumer_secret=
-
-    # [required] The site you want to request OAuth for, eg. 'http://twitter.com'
-    attr_accessor :consumer_site
-    alias site  consumer_site
-    alias site= consumer_site=
-
-		# [optional] Authorize rather than authenticate
-		attr_accessor :permanent
+		
+		# [required] consumer options, needs at least a :site key.
+		attr_accessor :consumer_options
+		attr_accessor :request_headers
+		
+		# [optional] Site deployment sub-uri
+		attr_accessor :root		
 
     # an arbitrary name for this instance of Rack::OAuth
     def name
@@ -180,7 +179,6 @@ module Rack #:nodoc:
       env['rack.oauth'] ||= {}
       env['rack.oauth'][name] = self
 
-			RAILS_DEFAULT_LOGGER.debug "#{env['PATH_INFO']} - #{callback_path}"
       case env['PATH_INFO']
       
       # find out where to redirect to authorize for this oauth provider 
@@ -206,28 +204,25 @@ module Rack #:nodoc:
       end
 
       # get request token and hold onto the token/secret (which we need later to get the access token)
-      request = consumer.get_request_token :oauth_callback => ::File.join("http://#{ env['HTTP_HOST'] }", callback_path)
+      request = consumer.get_request_token({:oauth_callback => ::File.join("http://#{ env['HTTP_HOST'] }", root, callback_path)}, request_headers)
       session(env)[:token]  = request.token
       session(env)[:secret] = request.secret
 
       # redirect to the oauth provider's authorize url to authorize the user
-			path = request.authorize_url
-			path.gsub!('authorize', 'authenticate') if @permanent
-      [ 302, { 'Content-Type' => 'text/html', 'Location' => path }, [] ]
+      [ 302, { 'Content-Type' => 'text/html', 'Location' => request.authorize_url }, [] ]
     end
 
     def do_callback env
       # get access token and persist it in the session in a way that we can get it back out later
-			RAILS_DEFAULT_LOGGER.debug "Doing callback"
       request = ::OAuth::RequestToken.new consumer, session(env)[:token], session(env)[:secret]
-      set_access_token env, request.get_access_token(:oauth_verifier => Rack::Request.new(env).params['oauth_verifier'])
+      set_access_token env, request.get_access_token({:oauth_verifier => Rack::Request.new(env).params['oauth_verifier']}, request_headers)
 
       # clear out the session variables (won't need these anymore)
       session(env).delete(:token)
       session(env).delete(:secret)
 
       # we have an access token now ... redirect back to the user's application
-      [ 302, { 'Content-Type' => 'text/html', 'Location' => redirect_to }, [] ]
+      [ 302, { 'Content-Type' => 'text/html', 'Location' => ::File.join(root, redirect_to) }, [] ]
     end
 
     # Stores the access token in this env's session in a way that we can get it back out via #get_access_token(env)
@@ -252,14 +247,14 @@ module Rack #:nodoc:
     end
 
     def consumer
-      @consumer ||= ::OAuth::Consumer.new consumer_key, consumer_secret, :site => consumer_site
+      @consumer ||= ::OAuth::Consumer.new consumer_key, consumer_secret, consumer_options || {}
     end
 
     def valid?
       @errors = []
       @errors << ":consumer_key option is required"    unless consumer_key
       @errors << ":consumer_secret option is required" unless consumer_secret
-      @errors << ":consumer_site option is required"   unless consumer_site
+      @errors << ":consumer_options[:site] is required"   unless consumer_options && consumer_options[:site]
       @errors.empty?
     end
 
