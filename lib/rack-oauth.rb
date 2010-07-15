@@ -64,7 +64,7 @@ module Rack #:nodoc:
 
       # Returns the instance of Rack::OAuth given a name (defaults to the default Rack::OAuth name)
       def oauth_instance name = nil
-        oauth = Rack::OAuth.get(oauth_request_env, nil)
+        oauth = Rack::OAuth.get(oauth_request_env, name)
         raise "Couldn't find Rack::OAuth instance with name #{ name }" unless oauth
         oauth
       end
@@ -130,6 +130,10 @@ module Rack #:nodoc:
     attr_accessor :redirect_to
     alias redirect  redirect_to
     alias redirect= redirect_to=
+		
+		def redirect_to
+			::File.join *[@redirect_to.to_s, name_unless_default].compact
+		end
 
     # the name of the Rack env variable used for the session
     attr_accessor :rack_session
@@ -148,6 +152,9 @@ module Rack #:nodoc:
     attr_accessor :consumer_site
     alias site  consumer_site
     alias site= consumer_site=
+
+		# [optional] Authorize rather than authenticate
+		attr_accessor :permanent
 
     # an arbitrary name for this instance of Rack::OAuth
     def name
@@ -173,6 +180,7 @@ module Rack #:nodoc:
       env['rack.oauth'] ||= {}
       env['rack.oauth'][name] = self
 
+			RAILS_DEFAULT_LOGGER.debug "#{env['PATH_INFO']} - #{callback_path}"
       case env['PATH_INFO']
       
       # find out where to redirect to authorize for this oauth provider 
@@ -186,7 +194,6 @@ module Rack #:nodoc:
       # secret, to get an access token for this user
       when callback_path
         do_callback(env)
-
       else
         @app.call(env)
       end
@@ -204,11 +211,14 @@ module Rack #:nodoc:
       session(env)[:secret] = request.secret
 
       # redirect to the oauth provider's authorize url to authorize the user
-      [ 302, { 'Content-Type' => 'text/html', 'Location' => request.authorize_url }, [] ]
+			path = request.authorize_url
+			path.gsub!('authorize', 'authenticate') if @permanent
+      [ 302, { 'Content-Type' => 'text/html', 'Location' => path }, [] ]
     end
 
     def do_callback env
       # get access token and persist it in the session in a way that we can get it back out later
+			RAILS_DEFAULT_LOGGER.debug "Doing callback"
       request = ::OAuth::RequestToken.new consumer, session(env)[:token], session(env)[:secret]
       set_access_token env, request.get_access_token(:oauth_verifier => Rack::Request.new(env).params['oauth_verifier'])
 
