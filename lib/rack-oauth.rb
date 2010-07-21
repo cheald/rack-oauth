@@ -151,6 +151,7 @@ module Rack #:nodoc:
 		# [required] consumer options, needs at least a :site key.
 		attr_accessor :consumer_options
 		attr_accessor :request_headers
+		attr_accessor :authorize_parameters
 		
 		# [optional] Site deployment sub-uri
 		attr_accessor :root		
@@ -207,9 +208,10 @@ module Rack #:nodoc:
       request = consumer.get_request_token({:oauth_callback => ::File.join("http://#{ env['HTTP_HOST'] }", root, callback_path)}, request_headers)
       session(env)[:token]  = request.token
       session(env)[:secret] = request.secret
+			RAILS_DEFAULT_LOGGER.debug request.inspect
 
       # redirect to the oauth provider's authorize url to authorize the user
-      [ 302, { 'Content-Type' => 'text/html', 'Location' => request.authorize_url }, [] ]
+      [ 302, { 'Content-Type' => 'text/html', 'Location' => request.authorize_url(authorize_parameters) }, [] ]
     end
 
     def do_callback env

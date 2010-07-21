@@ -1,0 +1,41 @@
+This demonstrates flexible usage of rack-oauth for multiple providers in a single app. All configuration can be done via a YAML file and loaded as valid middleware in an initializer.
+
+Demonstrated methods include:
+
+1) Standard "vanilla" Twitter OAuth
+2) Separate domains for authorization and services consumption (Digg example)
+3) Complex authentication with custom parameters during token request and token authorization (Google Buzz)
+
+In these cases, the related auth cycle URLs are:
+
+/suburi/login/oauth/twitter
+/suburi/login/oauth/digg
+/suburi/login/oauth/google_buzz
+
+/suburi/login/oauth/return/twitter
+/suburi/login/oauth/return/digg
+/suburi/login/oauth/return/google_buzz
+
+/suburi/login/oauth/callback/twitter
+/suburi/login/oauth/callback/digg
+/suburi/login/oauth/callback/google_buzz
+
+You can map these routes like so:
+
+  map.with_options :controller => "login" do |login|
+    login.oauth_login    "/login/oauth/:service",          :action => "oauth_login"
+    login.oauth_return   "/login/oauth/return/:service",   :action => "oauth_return"
+    login.oauth_callback "/login/oauth/callback/:service", :action => "oauth_callback"
+  end
+
+Once a callback has been completed, you should have the information necessary to construct and access token in the session. To use a token for a specific service, do something like so:
+
+  def oauth_callback
+		# Using the mutative form removes the information from the session, enabling you to perform multiple delegated logins in the same session.
+		# If you use this form, be sure to store the key/secret from the token with your user record for oauth consumption later.
+    if token = get_access_token!("twitter") then
+      user_info = JSON::load(token.get('/account/verify_credentials.json').body)
+    end
+  end
+	
+You can then consume the token to perform some operation.

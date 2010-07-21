@@ -1,0 +1,2 @@
+OAUTH_CONFIG = YAML::load File.open("config/oauth.yml").read
+OAUTH_CONFIG["remotes"].each {|name, config| ActionController::Dispatcher.middleware.use(Rack::OAuth, name, config.with_indifferent_access) }

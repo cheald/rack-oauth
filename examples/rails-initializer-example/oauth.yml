@@ -1,0 +1,48 @@
+defaults: &defaults
+  root: /suburi
+  login: /login/oauth
+  redirect: /login/oauth/return
+  callback: /login/oauth/callback
+  
+remotes:
+  twitter:
+    <<: *defaults
+    key: xxxxxxxxxxxxx
+    secret: xxxxxxxxxxxxx
+    consumer_options:
+      site: http://api.twitter.com
+      authorize_path: /oauth/authenticate
+    
+  digg:
+    <<: *defaults
+    key: xxxxxxxxxxxxx
+    secret: xxxxxxxxxxxxx
+    consumer_options:
+      site: 'http://services.digg.com'
+      request_token_path: "/1.0/endpoint?method=oauth.getRequestToken"
+      access_token_path: "/1.0/endpoint?method=oauth.getAccessToken"
+      authorize_url: 'http://digg.com/oauth/authorize'
+      realm: 'http://services.digg.com'
+      scheme: header
+      signature_method: HMAC-SHA1      
+    request_headers:
+      "Content-Type": "applications/json"
+      
+  google_buzz:
+    <<: *defaults
+    key: xxxxxxxxxxxxx
+    secret: xxxxxxxxxxxxx
+    consumer_options:
+      site: https://www.googleapis.com
+      realm: https://www.googleapis.com
+      request_token_url: https://www.google.com/accounts/OAuthGetRequestToken
+      access_token_url: https://www.google.com/accounts/OAuthGetAccessToken
+      authorize_url: https://www.google.com/buzz/api/auth/OAuthAuthorizeToken
+      signature_method: "HMAC-SHA1"
+    request_headers:
+      scope: https://www.googleapis.com/auth/buzz
+      domain: http://yourdomain.com
+    authorize_parameters:
+      scope: https://www.googleapis.com/auth/buzz
+      domain: yourdomain.com
+      iconUrl: http://yourdomain.com.com/image.png
